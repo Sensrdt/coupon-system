@@ -35,7 +35,7 @@ func main() {
 	{
 		router.POST("/applicable", apiHandler.GetApplicableCouponsHandler)
 		router.POST("/validate", apiHandler.ValidateCouponHandler)
-		router.POST("/create", apiHandler.CreateCouponHandler)
+		router.POST("/", apiHandler.CreateCouponHandler)
 	}
 
 	r.Run(":" + cfg)

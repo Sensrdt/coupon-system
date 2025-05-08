@@ -8,6 +8,7 @@ import (
 type Cache interface {
 	Get(key string) (interface{}, bool)
 	Set(key string, value interface{})
+	Delete(key string)
 }
 
 type lruCache struct {
@@ -41,4 +42,10 @@ func (c *lruCache) Set(key string, value interface{}) {
 		delete(c.cache, last.Value.(string))
 		c.queue.Remove(last)
 	}
+}
+
+func (c *lruCache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.cache, key)
 }

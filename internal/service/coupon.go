@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -13,95 +12,201 @@ import (
 type CouponService struct {
 	repo  model.Repository
 	cache cache.Cache
-	// read-write lock
-	mu sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewCouponService(repo model.Repository, cache cache.Cache) *CouponService {
-	return &CouponService{repo: repo, cache: cache}
+	return &CouponService{
+		repo:  repo,
+		cache: cache,
+	}
 }
 
-func (s *CouponService) GetApplicableCoupons(ctx context.Context, cart []model.Cart, orderTotal int32, timeStamp string) []model.Coupon {
-	// add lru cache
-	cacheKey := fmt.Sprintf("applicable_coupons_%v_%v_%v", cart, orderTotal, timeStamp)
-
+func (s *CouponService) GetApplicableCoupons(ctx context.Context, cart *model.Cart) ([]*model.Coupon, error) {
 	s.mu.RLock()
-	coupons, found := s.cache.Get(cacheKey)
-	s.mu.RUnlock()
+	defer s.mu.RUnlock()
 
-	if found {
-		return coupons.([]model.Coupon)
+	cacheKey := generateCacheKey("applicable", cart)
+	if cached, ok := s.cache.Get(cacheKey); ok {
+		return cached.([]*model.Coupon), nil
 	}
 
-	all := s.repo.GetAllCoupons(ctx)
-	var applicable []model.Coupon
-	for _, c := range all {
-		if s.meetsCriteria(c, cart, orderTotal, timeStamp) {
-			applicable = append(applicable, c)
+	coupons, err := s.repo.GetAllCoupons(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	applicableCoupons := make([]*model.Coupon, 0)
+	now := time.Now()
+
+	for _, coupon := range coupons {
+		if !coupon.IsActive {
+			continue
+		}
+
+		if now.Before(coupon.StartDate) || now.After(coupon.EndDate) {
+			continue
+		}
+
+		if cart.Total < coupon.MinOrderValue {
+			continue
+		}
+
+		if coupon.UsageCount >= coupon.UsageLimit {
+			continue
+		}
+
+		hasApplicableItem := false
+		for _, item := range cart.Items {
+			for _, applicableItem := range coupon.ApplicableItems {
+				if item.ID == applicableItem {
+					hasApplicableItem = true
+					break
+				}
+			}
+			if hasApplicableItem {
+				break
+			}
+		}
+
+		if hasApplicableItem {
+			applicableCoupons = append(applicableCoupons, coupon)
 		}
 	}
 
+	// Cache the result
+	s.cache.Set(cacheKey, applicableCoupons)
+
+	return applicableCoupons, nil
+}
+
+func (s *CouponService) ValidateCoupon(ctx context.Context, code string, cart *model.Cart) (bool, error) {
 	s.mu.Lock()
-	s.cache.Set(cacheKey, applicable)
-	s.mu.Unlock()
+	defer s.mu.Unlock()
 
-	return applicable
+	cacheKey := generateCacheKey("validate", code, cart)
+	if cached, ok := s.cache.Get(cacheKey); ok {
+		return cached.(bool), nil
+	}
+
+	coupon, err := s.repo.FindCouponByCode(ctx, code)
+	if err != nil {
+		return false, err
+	}
+
+	if coupon == nil {
+		return false, nil
+	}
+
+	now := time.Now()
+	if !coupon.IsActive {
+		return false, nil
+	}
+
+	if now.Before(coupon.StartDate) || now.After(coupon.EndDate) {
+		return false, nil
+	}
+
+	if cart.Total < coupon.MinOrderValue {
+		return false, nil
+	}
+
+	if coupon.UsageCount >= coupon.UsageLimit {
+		return false, nil
+	}
+
+	hasApplicableItem := false
+	for _, item := range cart.Items {
+		for _, applicableItem := range coupon.ApplicableItems {
+			if item.ID == applicableItem {
+				hasApplicableItem = true
+				break
+			}
+		}
+		if hasApplicableItem {
+			break
+		}
+	}
+
+	if !hasApplicableItem {
+		return false, nil
+	}
+
+	coupon.UsageCount++
+	if err := s.repo.UpdateCoupon(ctx, coupon); err != nil {
+		return false, err
+	}
+
+	s.cache.Set(cacheKey, true)
+
+	return true, nil
 }
 
-func (s *CouponService) ValidateCoupon(ctx context.Context, code string, cart []model.Cart, total int32, ts string) map[string]interface{} {
-	cacheKey := fmt.Sprintf("validate_coupon_%v_%v_%v_%v", code, cart, total, ts)
-
-	s.mu.RLock()
-	coupon, found := s.cache.Get(cacheKey)
-	s.mu.RUnlock()
-
-	if found {
-		return coupon.(map[string]interface{})
-	}
-
-	couponFromDB, foundinDB := s.repo.FindCouponByCode(ctx, code)
-	if !foundinDB {
-		return map[string]interface{}{"is_valid": false, "reason": "coupon not found"}
-	}
-	if !s.meetsCriteria(couponFromDB, cart, total, ts) {
-		return map[string]interface{}{"is_valid": false, "reason": "coupon expired or not applicable"}
-	}
-
-	// dummy
-	discount := map[string]interface{}{
-		"items_discount":   50,
-		"charges_discount": 20,
-	}
-
+func (s *CouponService) CreateCoupon(ctx context.Context, coupon *model.Coupon) error {
 	s.mu.Lock()
-	s.cache.Set(cacheKey, discount)
-	s.mu.Unlock()
+	defer s.mu.Unlock()
 
-	return map[string]interface{}{"is_valid": true, "discount": discount, "message": "coupon applied successfully"}
-}
-
-func (s *CouponService) meetsCriteria(c model.Coupon, cart []model.Cart, total int32, ts string) bool {
-	t, _ := time.Parse(time.RFC3339, ts)
-	expiry, _ := time.Parse(time.RFC3339, c.ExpiryDate)
-	if t.After(expiry) || total < int32(c.MinOrderValue) {
-		return false
-	}
-	return true
-}
-
-func (s *CouponService) CreateCoupon(ctx context.Context, req model.CreateCouponRequest) error {
-	coupon := model.Coupon{
-		Code:                  req.CouponCode,
-		ExpiryDate:            req.ExpiryDate,
-		UsageType:             req.UsageType,
-		ApplicableMedicineIDs: req.ApplicableMedicineIDs,
-		ApplicableCategories:  req.ApplicableCategories,
-		MinOrderValue:         float64(req.MinOrderValue),
-		TermsAndConditions:    req.TermsAndConditions,
-		DiscountType:          req.DiscountType,
-		DiscountValue:         float64(req.DiscountValue),
-		MaxUsagePerUser:       int(req.MaxUsagePerUser),
+	if coupon.Code == "" {
+		return ErrInvalidCouponCode
 	}
 
-	return s.repo.CreateCoupon(ctx, &coupon)
+	if coupon.DiscountValue <= 0 {
+		return ErrInvalidDiscountValue
+	}
+
+	if coupon.MinOrderValue < 0 {
+		return ErrInvalidMinOrderValue
+	}
+
+	if coupon.MaxDiscount < 0 {
+		return ErrInvalidMaxDiscount
+	}
+
+	if coupon.UsageLimit <= 0 {
+		return ErrInvalidUsageLimit
+	}
+
+	if coupon.StartDate.After(coupon.EndDate) {
+		return ErrInvalidDateRange
+	}
+
+	// Create coupon
+	if err := s.repo.CreateCoupon(ctx, coupon); err != nil {
+		return err
+	}
+
+	// Invalidate cache
+	s.cache.Delete(generateCacheKey("applicable", nil))
+
+	return nil
+}
+
+// dummy
+func generateCacheKey(prefix string, params ...interface{}) string {
+	return prefix
+}
+
+// Error types
+var (
+	ErrInvalidCouponCode    = NewError("invalid coupon code")
+	ErrInvalidDiscountValue = NewError("invalid discount value")
+	ErrInvalidMinOrderValue = NewError("invalid minimum order value")
+	ErrInvalidMaxDiscount   = NewError("invalid maximum discount")
+	ErrInvalidUsageLimit    = NewError("invalid usage limit")
+	ErrInvalidDateRange     = NewError("invalid date range")
+)
+
+// Error represents a service error
+type Error struct {
+	message string
+}
+
+// NewError creates a new Error
+func NewError(message string) *Error {
+	return &Error{message: message}
+}
+
+// Error returns the error message
+func (e *Error) Error() string {
+	return e.message
 }

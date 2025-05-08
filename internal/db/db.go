@@ -22,26 +22,19 @@ func (db *DB) ValidateTables() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	// Check and create coupons table
-	if !db.Migrator().HasTable(&model.Coupon{}) {
-		log.Println("Creating coupons table...")
-		if err := db.AutoMigrate(&model.Coupon{}); err != nil {
-			return fmt.Errorf("failed to create coupons table: %v", err)
+	// Drop and recreate tables to ensure schema is up to date
+	if db.Migrator().HasTable(&model.Coupon{}) {
+		log.Println("Dropping existing coupons table...")
+		if err := db.Migrator().DropTable(&model.Coupon{}); err != nil {
+			return fmt.Errorf("failed to drop tables: %v", err)
 		}
-		log.Println("Coupons table created successfully")
-	} else {
-		log.Println("Coupons table already exists")
 	}
 
-	if !db.Migrator().HasTable(&model.Cart{}) {
-		log.Println("Creating cart table...")
-		if err := db.AutoMigrate(&model.Cart{}); err != nil {
-			return fmt.Errorf("failed to create cart table: %v", err)
-		}
-		log.Println("Cart table created successfully")
-	} else {
-		log.Println("Cart table already exists")
+	log.Println("Creating coupons table...")
+	if err := db.AutoMigrate(&model.Coupon{}); err != nil {
+		return fmt.Errorf("failed to create coupons table: %v", err)
 	}
+	log.Println("Coupons table created successfully")
 
 	return nil
 }
@@ -100,20 +93,34 @@ func (db *DB) CreateCoupon(ctx context.Context, c *model.Coupon) error {
 	})
 }
 
-func (db *DB) GetAllCoupons(ctx context.Context) []model.Coupon {
+func (db *DB) GetAllCoupons(ctx context.Context) ([]*model.Coupon, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	var coupons []model.Coupon
-	db.WithContext(ctx).Find(&coupons)
-	return coupons
+	var coupons []*model.Coupon
+	if err := db.WithContext(ctx).Find(&coupons).Error; err != nil {
+		return nil, err
+	}
+	return coupons, nil
 }
 
-func (db *DB) FindCouponByCode(ctx context.Context, code string) (model.Coupon, bool) {
+func (db *DB) FindCouponByCode(ctx context.Context, code string) (*model.Coupon, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	var coupon model.Coupon
-	result := db.WithContext(ctx).Where("code = ?", code).First(&coupon)
-	return coupon, result.Error == nil
+	if err := db.WithContext(ctx).Where("code = ?", code).First(&coupon).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &coupon, nil
+}
+
+func (db *DB) UpdateCoupon(ctx context.Context, coupon *model.Coupon) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	return db.WithContext(ctx).Save(coupon).Error
 }
