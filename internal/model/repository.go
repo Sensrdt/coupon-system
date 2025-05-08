@@ -1,7 +1,9 @@
 package model
 
+import "context"
+
 type Repository interface {
-	CreateCoupon(c *Coupon) error
-	GetAllCoupons() []Coupon
-	FindCouponByCode(code string) (Coupon, bool)
+	CreateCoupon(ctx context.Context, c *Coupon) error
+	GetAllCoupons(ctx context.Context) []Coupon
+	FindCouponByCode(ctx context.Context, code string) (Coupon, bool)
 }

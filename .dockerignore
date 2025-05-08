@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Data
+data/
+*.db
+
+# IDE
+.idea/
+.vscode/
+
+# Build
+bin/
+tmp/
+
+# Logs
+*.log
+
+# Test
+coverage/ 

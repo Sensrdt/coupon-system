@@ -1,0 +1,277 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a coupon system API server.",
+        "title": "Coupon System API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/coupons/applicable": {
+            "post": {
+                "description": "Get applicable coupons for a given cart and order total",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get applicable coupons",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.GetApplicableCouponsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Applicable coupons",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Coupon"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/coupons/create": {
+            "post": {
+                "description": "Create a new coupon",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create coupon",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.CreateCouponRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Coupon created",
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateCouponResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/coupons/validate": {
+            "post": {
+                "description": "Validate a coupon for a given cart and order total",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Validate coupon",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ValidateCouponRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Validation result",
+                        "schema": {
+                            "$ref": "#/definitions/api.ValidateCouponResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.CreateCouponResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.GetApplicableCouponsRequest": {
+            "type": "object",
+            "properties": {
+                "cart_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Cart"
+                    }
+                },
+                "order_total": {
+                    "type": "integer"
+                },
+                "time_stamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ValidateCouponRequest": {
+            "type": "object",
+            "properties": {
+                "cart_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Cart"
+                    }
+                },
+                "coupon_code": {
+                    "type": "string"
+                },
+                "order_total": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ValidateCouponResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "model.Cart": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Coupon": {
+            "type": "object",
+            "properties": {
+                "applicable_categories": {
+                    "type": "string"
+                },
+                "applicable_medicine_ids": {
+                    "type": "string"
+                },
+                "coupon_code": {
+                    "type": "string"
+                },
+                "discount_type": {
+                    "type": "string"
+                },
+                "discount_value": {
+                    "type": "number"
+                },
+                "expiry_date": {
+                    "type": "string"
+                },
+                "max_usage_per_user": {
+                    "type": "integer"
+                },
+                "min_order_value": {
+                    "type": "number"
+                },
+                "terms_and_conditions": {
+                    "type": "string"
+                },
+                "usage_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.CreateCouponRequest": {
+            "type": "object",
+            "properties": {
+                "applicable_categories": {
+                    "type": "string"
+                },
+                "applicable_medicine_ids": {
+                    "type": "string"
+                },
+                "coupon_code": {
+                    "type": "string"
+                },
+                "discount_type": {
+                    "type": "string"
+                },
+                "discount_value": {
+                    "type": "integer"
+                },
+                "expiry_date": {
+                    "type": "string"
+                },
+                "max_usage_per_user": {
+                    "type": "integer"
+                },
+                "min_order_value": {
+                    "type": "integer"
+                },
+                "terms_and_conditions": {
+                    "type": "string"
+                },
+                "usage_type": {
+                    "type": "string"
+                },
+                "valid_time_window": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

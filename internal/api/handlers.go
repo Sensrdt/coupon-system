@@ -20,28 +20,18 @@ func NewHandler(svc *service.CouponService) *Handler {
 // @Description Get applicable coupons for a given cart and order total
 // @Accept json
 // @Produce json
-// @Param cart_items body []model.Cart true "Cart items"
-// @Param order_total int true "Order total"
-// @Param time_stamp string true "Timestamp"
+// @Param request body GetApplicableCouponsRequest true "Request body"
 // @Success 200 {array} model.Coupon "Applicable coupons"
-// @Failure 400 {object} gin.H "Bad Request"
+// @Failure 400 {object} ErrorResponse "Bad Request"
+// @Router /coupons/applicable [post]
 func (h *Handler) GetApplicableCouponsHandler(c *gin.Context) {
-	r := c.Request
-	var request struct {
-		CartItems  []model.Cart `json:"cart_items"`
-		OrderTotal int32        `json:"order_total"`
-		TimeStamp  string       `json:"time_stamp"`
-	}
-
+	var request GetApplicableCouponsRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	// add context
-	ctx := r.Context()
-
-	coupons := h.svc.GetApplicableCoupons(ctx, request.CartItems, request.OrderTotal, request.TimeStamp)
+	coupons := h.svc.GetApplicableCoupons(c.Request.Context(), request.CartItems, request.OrderTotal, request.TimeStamp)
 	c.JSON(http.StatusOK, coupons)
 }
 
@@ -49,27 +39,64 @@ func (h *Handler) GetApplicableCouponsHandler(c *gin.Context) {
 // @Description Validate a coupon for a given cart and order total
 // @Accept json
 // @Produce json
-// @Param coupon_code body string true "Coupon code"
-// @Param cart_items body []model.Cart true "Cart items"
-// @Param order_total int true "Order total"
-// @Param timestamp string true "Timestamp"
-// @Success 200 {object} map[string]interface{} "Validation result"
-// @Failure 400 {object} gin.H "Bad Request"
+// @Param request body ValidateCouponRequest true "Request body"
+// @Success 200 {object} ValidateCouponResponse "Validation result"
+// @Failure 400 {object} ErrorResponse "Bad Request"
+// @Router /coupons/validate [post]
 func (h *Handler) ValidateCouponHandler(c *gin.Context) {
-	r := c.Request
-	var req struct {
-		CouponCode string       `json:"coupon_code"`
-		CartItems  []model.Cart `json:"cart_items"`
-		OrderTotal int32        `json:"order_total"`
-		Timestamp  string       `json:"timestamp"`
-	}
+	var req ValidateCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	ctx := r.Context()
-
-	res := h.svc.ValidateCoupon(ctx, req.CouponCode, req.CartItems, req.OrderTotal, req.Timestamp)
+	res := h.svc.ValidateCoupon(c.Request.Context(), req.CouponCode, req.CartItems, req.OrderTotal, req.Timestamp)
 	c.JSON(http.StatusOK, res)
+}
+
+// @Summary Create coupon
+// @Description Create a new coupon
+// @Accept json
+// @Produce json
+// @Param request body model.CreateCouponRequest true "Request body"
+// @Success 200 {object} CreateCouponResponse "Coupon created"
+// @Failure 400 {object} ErrorResponse "Bad Request"
+// @Router /coupons/create [post]
+func (h *Handler) CreateCouponHandler(c *gin.Context) {
+	var req model.CreateCouponRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if err := h.svc.CreateCoupon(c.Request.Context(), req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, CreateCouponResponse{Message: "Coupon created successfully"})
+}
+
+type GetApplicableCouponsRequest struct {
+	CartItems  []model.Cart `json:"cart_items"`
+	OrderTotal int32        `json:"order_total"`
+	TimeStamp  string       `json:"time_stamp"`
+}
+
+type ValidateCouponRequest struct {
+	CouponCode string       `json:"coupon_code"`
+	CartItems  []model.Cart `json:"cart_items"`
+	OrderTotal int32        `json:"order_total"`
+	Timestamp  string       `json:"timestamp"`
+}
+type ValidateCouponResponse struct {
+	Valid   bool   `json:"valid"`
+	Message string `json:"message,omitempty"`
+}
+
+type CreateCouponResponse struct {
+	Message string `json:"message"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error"`
 }

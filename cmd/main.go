@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	_ "github.com/Sensrdt/coupon-system/docs" // swagger docs
+	_ "github.com/Sensrdt/coupon-system/docs/swagger" // swagger docs
 	"github.com/Sensrdt/coupon-system/internal/api"
 	"github.com/Sensrdt/coupon-system/internal/cache"
 	"github.com/Sensrdt/coupon-system/internal/db"
@@ -33,9 +33,9 @@ func main() {
 
 	router := r.Group("/coupons")
 	{
-		router.GET("/applicable", apiHandler.GetApplicableCouponsHandler)
+		router.POST("/applicable", apiHandler.GetApplicableCouponsHandler)
 		router.POST("/validate", apiHandler.ValidateCouponHandler)
-		// router.POST("/create", apiHandler.CreateCoupon) // Admin creation
+		router.POST("/create", apiHandler.CreateCouponHandler)
 	}
 
 	r.Run(":" + cfg)

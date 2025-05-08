@@ -1,0 +1,180 @@
+basePath: /
+definitions:
+  api.CreateCouponResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  api.GetApplicableCouponsRequest:
+    properties:
+      cart_items:
+        items:
+          $ref: '#/definitions/model.Cart'
+        type: array
+      order_total:
+        type: integer
+      time_stamp:
+        type: string
+    type: object
+  api.ValidateCouponRequest:
+    properties:
+      cart_items:
+        items:
+          $ref: '#/definitions/model.Cart'
+        type: array
+      coupon_code:
+        type: string
+      order_total:
+        type: integer
+      timestamp:
+        type: string
+    type: object
+  api.ValidateCouponResponse:
+    properties:
+      message:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  model.Cart:
+    properties:
+      category:
+        type: string
+      id:
+        type: string
+    type: object
+  model.Coupon:
+    properties:
+      applicable_categories:
+        type: string
+      applicable_medicine_ids:
+        type: string
+      coupon_code:
+        type: string
+      discount_type:
+        type: string
+      discount_value:
+        type: number
+      expiry_date:
+        type: string
+      max_usage_per_user:
+        type: integer
+      min_order_value:
+        type: number
+      terms_and_conditions:
+        type: string
+      usage_type:
+        type: string
+    type: object
+  model.CreateCouponRequest:
+    properties:
+      applicable_categories:
+        type: string
+      applicable_medicine_ids:
+        type: string
+      coupon_code:
+        type: string
+      discount_type:
+        type: string
+      discount_value:
+        type: integer
+      expiry_date:
+        type: string
+      max_usage_per_user:
+        type: integer
+      min_order_value:
+        type: integer
+      terms_and_conditions:
+        type: string
+      usage_type:
+        type: string
+      valid_time_window:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a coupon system API server.
+  title: Coupon System API
+  version: "1.0"
+paths:
+  /coupons/applicable:
+    post:
+      consumes:
+      - application/json
+      description: Get applicable coupons for a given cart and order total
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.GetApplicableCouponsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Applicable coupons
+          schema:
+            items:
+              $ref: '#/definitions/model.Coupon'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get applicable coupons
+  /coupons/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new coupon
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateCouponRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Coupon created
+          schema:
+            $ref: '#/definitions/api.CreateCouponResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Create coupon
+  /coupons/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate a coupon for a given cart and order total
+      parameters:
+      - description: Request body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ValidateCouponRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Validation result
+          schema:
+            $ref: '#/definitions/api.ValidateCouponResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Validate coupon
+swagger: "2.0"
